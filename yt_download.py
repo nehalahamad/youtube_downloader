@@ -201,7 +201,7 @@ class YTDownload:
         download_frame = DownloadButtonFrame(mainframe)
 
     def _root_configure(self, root):
-        root.title("YouTube Downloader")
+        root.title("Nehal's YT Downloader")
         root.minsize(400,300)
         root.grid_rowconfigure(0, weight=1)
         root.grid_columnconfigure(0, weight=1)
