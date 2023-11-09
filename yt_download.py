@@ -9,7 +9,7 @@ from ttkbootstrap.scrolled import ScrolledFrame
 from pytube import YouTube
 from pytube import Playlist
 from tkinter import filedialog
-
+import concurrent.futures
 from icecream import ic
 
 class DownloadFrameChild(ttk.Frame):
@@ -19,7 +19,6 @@ class DownloadFrameChild(ttk.Frame):
             bytes_downloaded = file_size - bytes_remaining
             progress = int((bytes_downloaded / file_size) * 100)
             self.progress_value.set(value=progress)
-            self.update_idletasks()
         
         super().__init__(master)
         # self.pack(fill=ttk.X)
@@ -165,20 +164,26 @@ class DownloadButtonFrame(ttk.Frame):
     
     def download(self, *args):
         self.download_label.configure(text='Downloading...')
-        self.update_idletasks()
         if first_download_frame.onn:
             for yt_progress_value_frame_obj in first_download_frame.yt_obj_list:
-                mystream = yt_progress_value_frame_obj.yt.streams.get_by_itag(resolution.get())
-                mystream.download(output_path=file_path.get())
-                root.update_idletasks()
+                self._download(yt_progress_value_frame_obj)
+            # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+            #     executor.map(self._download, first_download_frame.yt_obj_list)
 
         elif second_download_frame.onn:
             for yt_progress_value_frame_obj in second_download_frame.yt_obj_list:
-                mystream = yt_progress_value_frame_obj.yt.streams.get_by_itag(resolution.get())
-                mystream.download(output_path=file_path.get())
-                root.update_idletasks()
+                self._download(yt_progress_value_frame_obj)
 
         self.download_label.configure(text='Download Completed')
+
+    def _download(self, yt_progress_value_frame_obj):
+        try:
+            mystream = yt_progress_value_frame_obj.yt.streams.get_by_itag(resolution.get())
+            mystream.download(output_path=file_path.get())
+            root.update_idletasks()
+        except:
+            self.download_label.configure(text='Failed, might be private video')
+
 # ====================================================
 class YTDownload:
     def __init__(self, root):
