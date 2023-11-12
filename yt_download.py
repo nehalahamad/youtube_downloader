@@ -9,7 +9,7 @@ from ttkbootstrap.scrolled import ScrolledFrame
 from pytube import YouTube
 from pytube import Playlist
 from tkinter import filedialog
-import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor
 from icecream import ic
 
 class DownloadFrameChild(ttk.Frame):
@@ -21,21 +21,24 @@ class DownloadFrameChild(ttk.Frame):
             self.progress_value.set(value=progress)
         
         super().__init__(master)
-        # self.pack(fill=ttk.X)
-        self.pack(expand=True, fill=BOTH)
+        self.grid(row=i, column=0, sticky="EW")
+
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
         self.progress_value = IntVar(value=2)
         self.yt = YouTube(video_url, on_progress_callback=on_progress)
-        # ttk.Checkbutton(self, text=self.yt.title, onvalue='yes', offvalue='no').grid(row=i, column=0, sticky=W)
-        ttk.Label(self, text=f"{i+1}: {self.yt.title}", background='#edf0ee'*((i+1)%2)).grid(row=i, column=0, sticky="EW")
-        ttk.Progressbar(self, bootstyle="success", variable=self.progress_value, orient=HORIZONTAL, mode=DETERMINATE, length=60, value=20).grid(row=i, column=1, sticky=E, padx=3)
-    
+        self.label = ttk.Label(self, text=f"{i+1}: {self.yt.title}", background='#edf0ee'*((i+1)%2))
+        self.label.grid(row=0, column=0, sticky="EW")
+        ttk.Progressbar(self, bootstyle="success", variable=self.progress_value, orient=HORIZONTAL, mode=DETERMINATE, length=60, value=20).grid(row=0, column=1, sticky=E, padx=3)
+        
 
 class DownloadFrame(ttk.Frame):
     def __init__(self, master):
         super().__init__(master)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
         self.onn = False
         self.yt_obj_list = []
 
@@ -43,9 +46,15 @@ class DownloadFrame(ttk.Frame):
         for frame1 in self.yt_obj_list:
             frame1.destroy()
         self.yt_obj_list.clear()
-        for i, video_url in enumerate(url_list) :
-            dd = DownloadFrameChild(self, i, video_url)
-            self.yt_obj_list.append(dd)
+        # -----------------------------------------------------
+        pool = ThreadPoolExecutor(max_workers=25)
+        pool.map(self._add_items, range(len(url_list)), url_list)
+        # -----------------------------------------------------
+    def _add_items(self, i, video_url):
+        dd = DownloadFrameChild(self, i, video_url)
+        self.yt_obj_list.append(dd)
+
+
          
 
 class PyTube:
@@ -74,6 +83,25 @@ class PyTube:
         first_download_frame.add_items(ptube.p_list)
         second_download_frame.add_items(ptube.single_video_url)
 
+    def download(self, *args):
+        if first_download_frame.onn:
+            # ------------------------------------------------------------------------------
+            pool = ThreadPoolExecutor(max_workers=3)
+            pool.map(self._download, first_download_frame.yt_obj_list)
+            # ------------------------------------------------------------------------------
+
+        elif second_download_frame.onn:
+            for yt_progress_value_frame_obj in second_download_frame.yt_obj_list:
+                self._download(yt_progress_value_frame_obj)
+
+    def _download(self, yt_progress_value_frame_obj):
+        try:
+            mystream = yt_progress_value_frame_obj.yt.streams.get_by_itag(resolution.get())
+            yt_progress_value_frame_obj.label['text'] += f' | {mystream.filesize_mb:.2f}MB'
+            mystream.download(output_path=file_path.get())
+            root.update_idletasks()
+        except Exception as e:
+            print(e)
 
 # -----------------------------------------------------------------------------------
 class MainFrame(ttk.Frame):
@@ -131,7 +159,6 @@ class ResolutionAndPlaylistCheckboxFrame(ttk.Frame):
 
 
     def create_download_frame(self):
-        # https://www.youtube.com/watch?v=41qgdwd3zAg&list=PLS1QulWo1RIaJECMeUT4LFwJ-ghgoSH6n
         if self.play_list.get():
             second_download_frame.pack_forget()
             second_download_frame.onn = False
@@ -160,39 +187,17 @@ class DownloadButtonFrame(ttk.Frame):
         self.download_label = ttk.Label(self, text='---')
         self.download_label.pack(side=LEFT)
 
-        self.download_button = ttk.Button(self, text="Download", command=self.download).pack(side=RIGHT)
+        self.download_button = ttk.Button(self, text="Download", command=ptube.download).pack(side=RIGHT)
     
-    def download(self, *args):
-        self.download_label.configure(text='Downloading...')
-        if first_download_frame.onn:
-            for yt_progress_value_frame_obj in first_download_frame.yt_obj_list:
-                self._download(yt_progress_value_frame_obj)
-            # with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            #     executor.map(self._download, first_download_frame.yt_obj_list)
-
-        elif second_download_frame.onn:
-            for yt_progress_value_frame_obj in second_download_frame.yt_obj_list:
-                self._download(yt_progress_value_frame_obj)
-
-        self.download_label.configure(text='Download Completed')
-
-    def _download(self, yt_progress_value_frame_obj):
-        try:
-            mystream = yt_progress_value_frame_obj.yt.streams.get_by_itag(resolution.get())
-            mystream.download(output_path=file_path.get())
-            root.update_idletasks()
-        except:
-            self.download_label.configure(text='Failed, might be private video')
-
 # ====================================================
 class YTDownload:
     def __init__(self, root):
         self._root_configure(root)
         mainframe = MainFrame(root)
 
-        url_frame = URLFrame(mainframe)
-        save_path_frame = SavePathFrame(mainframe)
-        resolution_frame = ResolutionAndPlaylistCheckboxFrame(mainframe)
+        self.url_frame = URLFrame(mainframe)
+        self.save_path_frame = SavePathFrame(mainframe)
+        self.resolution_frame = ResolutionAndPlaylistCheckboxFrame(mainframe)
 
         yt_content_frame = YoutubeContentFrame(mainframe) #scrolled_frame
 
@@ -203,7 +208,7 @@ class YTDownload:
         second_download_frame.onn = True
         second_download_frame.pack(expand=True, fill=BOTH)
         
-        download_frame = DownloadButtonFrame(mainframe)
+        self.download_frame = DownloadButtonFrame(mainframe)
 
     def _root_configure(self, root):
         root.title("Nehal's YT Downloader")
@@ -219,5 +224,5 @@ second_download_frame = ''
 file_path = StringVar()
 resolution = IntVar(value=22)
 
-YTDownload(root)
+yt_app = YTDownload(root)
 root.mainloop()
