@@ -84,15 +84,17 @@ class PyTube:
         second_download_frame.add_items(ptube.single_video_url)
 
     def download(self, *args):
+        pool = ThreadPoolExecutor(max_workers=3)
         if first_download_frame.onn:
             # ------------------------------------------------------------------------------
-            pool = ThreadPoolExecutor(max_workers=3)
             pool.map(self._download, first_download_frame.yt_obj_list)
             # ------------------------------------------------------------------------------
 
         elif second_download_frame.onn:
-            for yt_progress_value_frame_obj in second_download_frame.yt_obj_list:
-                self._download(yt_progress_value_frame_obj)
+            pool.map(self._download, second_download_frame.yt_obj_list)
+
+            # for yt_progress_value_frame_obj in second_download_frame.yt_obj_list:
+                # self._download(yt_progress_value_frame_obj)
 
     def _download(self, yt_progress_value_frame_obj):
         try:
