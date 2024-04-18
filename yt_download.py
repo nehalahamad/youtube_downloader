@@ -30,7 +30,7 @@ class DownloadFrameChild(ttk.Frame):
         self.yt = YouTube(video_url, on_progress_callback=on_progress)
         self.label = ttk.Label(self, text=f"{i+1}: {self.yt.title}", background='#edf0ee'*((i+1)%2))
         self.label.grid(row=0, column=0, sticky="EW")
-        ttk.Progressbar(self, bootstyle="success", variable=self.progress_value, orient=HORIZONTAL, mode=DETERMINATE, length=60, value=20).grid(row=0, column=1, sticky=E, padx=3)
+        ttk.Progressbar(self, bootstyle="success", variable=self.progress_value, orient=HORIZONTAL, mode=DETERMINATE, length=60, value=20).grid(row=0, column=1, sticky=E, padx=13)
         
 
 class DownloadFrame(ttk.Frame):
@@ -47,12 +47,13 @@ class DownloadFrame(ttk.Frame):
             frame1.destroy()
         self.yt_obj_list.clear()
         # -----------------------------------------------------
+        self.yt_obj_list = [-1] * len(url_list) #initializing the lenth of  yt_obj_list
         pool = ThreadPoolExecutor(max_workers=25)
         pool.map(self._add_items, range(len(url_list)), url_list)
         # -----------------------------------------------------
     def _add_items(self, i, video_url):
         dd = DownloadFrameChild(self, i, video_url)
-        self.yt_obj_list.append(dd)
+        self.yt_obj_list[i] = dd
 
 
          
